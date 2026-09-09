@@ -243,6 +243,8 @@ LOCATION 's3://cf-hackathon/osint-fusion-app/requests/';
 
 Access key, secret, optional session token, region. Validate via STS; route to landing on success.
 
+On first authenticated session the app bootstraps missing S3 registry/schema files and runs Athena DDL to create the `osint_fusion` database and `osint_cube` table. Failures show a banner linking to README manual setup.
+
 ### 6.2 Landing page
 
 Request catalog from `registry/requests.json`: topic summary, status badge (PENDING / BUILDING / READY / FAILED), created date, record count when ready. CTA: **New Collection Request**.

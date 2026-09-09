@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #1a1f16;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .input-tactical {
+    @apply mt-1 w-full rounded border border-tactical-border bg-tactical-panel px-3 py-2 text-tactical-text caret-tactical-gold placeholder:text-tactical-muted focus:border-tactical-gold focus:outline-none focus:ring-1 focus:ring-tactical-gold;
+  }
+}
