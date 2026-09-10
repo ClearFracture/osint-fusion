@@ -175,7 +175,7 @@ STORED AS PARQUET
 LOCATION 's3://cf-hackathon/osint-fusion-app/requests/';
 ```
 
-After Belvedere writes parquet partitions, run `MSCK REPAIR TABLE osint_cube` (or rely on Belvedere to register partitions).
+Parquet lives under `requests/{request-id}/cube/data/source_type=…/source_producer=…/`, which is **not** Hive-compatible directly under the table `LOCATION`. OSINT-Fusion registers partitions automatically when you open or refresh a ready request (via `ALTER TABLE … ADD PARTITION` with explicit S3 paths). Belvedere may also register partitions via Glue.
 
 ## Documentation
 

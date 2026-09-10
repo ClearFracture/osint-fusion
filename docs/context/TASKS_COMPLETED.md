@@ -74,3 +74,14 @@ Full OSINT-Fusion SPA implemented per `PROJECT_PLAN.md`: Phases 0–4.
 - Narrative is the only required topic field; geofence, time range, and source types remain optional
 - UI panel relabeled to "Topic / Question Narrative"; optional panels marked in titles
 - Validation: `npm test`; `npm run build`
+
+### Athena partition registration (2026-09-10)
+- Review found app created `osint_cube` but never registered partitions; `MSCK REPAIR` incompatible with `{request-id}/cube/data/…` path layout
+- Added S3 partition discovery and `ALTER TABLE ADD IF NOT EXISTS PARTITION … LOCATION` on ready request detail load and manual refresh
+- Updated IAM policy docs with `glue:CreatePartition`
+- Validation: `npm test`; `npm run build`
+
+### Readiness debug logging (2026-09-10)
+- Added namespaced console logger and instrumented readiness check, status persistence, and manual refresh flow
+- Logs S3 URIs, manifest parsing, parquet listing, decision branch, and status mismatch hints
+- Validation: `npm test` — 41 passed; `npm run build` — succeeded

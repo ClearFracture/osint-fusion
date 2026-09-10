@@ -71,7 +71,7 @@ glue:GetDatabase, glue:GetTable, glue:GetPartitions
 
 ### Glue / Athena catalog
 
-Belvedere auto-registers a **single shared external table** `osint_cube` when cubes are built. All requests write parquet under their own prefix; catalog partitions include `request_id`, `source_type`, and `source_producer`. The app queries with `WHERE request_id = '{request-id}'`. Table name may also appear in `_manifest.json`.
+Belvedere (or the app) registers partitions on a **single shared external table** `osint_cube`. The app bootstraps the database/table on login; when a request is ready, it discovers parquet prefixes under `requests/{request-id}/cube/data/` and runs `ALTER TABLE … ADD PARTITION` with explicit S3 `LOCATION` paths (required because paths include `{request-id}/cube/data/` rather than Hive-style `request_id=` folders at the table root). Catalog partitions include `request_id`, `source_type`, and `source_producer`. The app queries with `WHERE request_id = '{request-id}'`.
 
 ---
 

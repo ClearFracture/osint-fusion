@@ -8,6 +8,7 @@ import type {
 } from '../types/request';
 import { topicSummary } from './topicValidation';
 import { deletePrefix, getJsonObject, putJsonObject } from './aws/s3Repository';
+import { logger } from './logger';
 
 const REGISTRY_KEY = 'registry/requests.json';
 
@@ -32,13 +33,28 @@ export async function saveRequestStatus(
   request: CollectionRequest,
   status: RequestStatus,
 ): Promise<CollectionRequest> {
+  logger.info('request-status', 'Persisting request status', {
+    requestId: request.request_id,
+    previousStatus: request.status,
+    nextStatus: status,
+  });
+
   const updated = { ...request, status };
   await putJsonObject(client, `requests/${request.request_id}/request.json`, updated);
   const registry = await loadRegistry(client);
+  const registryEntry = registry.requests.find((entry) => entry.request_id === request.request_id);
   registry.requests = registry.requests.map((entry) =>
     entry.request_id === request.request_id ? { ...entry, status } : entry,
   );
   await putJsonObject(client, REGISTRY_KEY, registry);
+
+  logger.info('request-status', 'Request status persisted', {
+    requestId: request.request_id,
+    status,
+    registryEntryFound: Boolean(registryEntry),
+    registryEntryPreviousStatus: registryEntry?.status ?? null,
+  });
+
   return updated;
 }
 

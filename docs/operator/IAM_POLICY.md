@@ -38,6 +38,7 @@ Grants access to the OSINT-Fusion app prefix on the shared hackathon bucket, inc
         "glue:GetPartitions",
         "glue:CreateDatabase",
         "glue:CreateTable",
+        "glue:CreatePartition",
         "glue:UpdateTable"
       ],
       "Resource": "*"

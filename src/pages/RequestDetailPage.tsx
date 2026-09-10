@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { DeleteRequestButton } from '../components/DeleteRequestButton';
@@ -7,6 +7,8 @@ import { RequestTopicPanels, topicToPanelState } from '../components/RequestTopi
 import { StatusBadge } from '../components/StatusBadge';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { buildOverviewQuery, runQuery } from '../lib/aws/athenaRepository';
+import { registerCubePartitions } from '../lib/cubePartitions';
+import { logger } from '../lib/logger';
 import { checkCubeReadiness } from '../lib/readiness';
 import {
   loadRequest,
@@ -36,18 +38,68 @@ export function RequestDetailPage() {
   const request = requestQuery.data;
   const isReady = request?.status === 'ready';
 
+  useQuery({
+    queryKey: ['register-partitions', requestId],
+    queryFn: () => registerCubePartitions(s3Client!, athenaClient!, requestId!),
+    enabled: Boolean(s3Client && athenaClient && requestId && isReady),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!request) {
+      return;
+    }
+    logger.info('request-detail', 'Request detail state', {
+      requestId: request.request_id,
+      storedStatus: request.status,
+      uiIsReady: request.status === 'ready',
+      cubeS3Prefix: request.cube_s3_prefix,
+    });
+  }, [request]);
+
   async function handleRefreshStatus() {
     if (!s3Client || !request) return;
     setRefreshing(true);
     setRefreshMessage(null);
+    logger.info('request-detail', 'Manual readiness refresh started', {
+      requestId: request.request_id,
+      storedStatus: request.status,
+    });
     try {
       const readiness = await checkCubeReadiness(s3Client, request.request_id, request.status);
-      await saveRequestStatus(s3Client, request, readiness.status);
+      logger.info('request-detail', 'Readiness check completed', {
+        requestId: request.request_id,
+        readinessStatus: readiness.status,
+        manifestStatus: readiness.manifest?.status ?? null,
+        hasParquet: readiness.hasParquet,
+      });
+
+      const updatedRequest = await saveRequestStatus(s3Client, request, readiness.status);
+      logger.info('request-detail', 'Stored request status after refresh', {
+        requestId: request.request_id,
+        storedStatus: updatedRequest.status,
+        uiWillShowReady: updatedRequest.status === 'ready',
+      });
 
       if (readiness.status === 'ready' && athenaClient) {
+        const partitionResult = await registerCubePartitions(
+          s3Client,
+          athenaClient,
+          request.request_id,
+        );
+        logger.info('request-detail', 'Partition registration during refresh', {
+          requestId: request.request_id,
+          ...partitionResult,
+        });
+
         try {
           const rows = await runQuery(athenaClient, buildOverviewQuery(request.request_id));
           const recordCount = Number(rows[0]?.total_records ?? 0);
+          logger.info('request-detail', 'Athena record count lookup', {
+            requestId: request.request_id,
+            recordCount,
+          });
           if (recordCount > 0) {
             await updateRegistryRecordCount(
               s3Client,
@@ -56,8 +108,11 @@ export function RequestDetailPage() {
               'ready',
             );
           }
-        } catch {
-          // Record count is optional when Athena is unavailable.
+        } catch (error) {
+          logger.warn('request-detail', 'Athena record count lookup failed (optional step)', {
+            requestId: request.request_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -67,11 +122,23 @@ export function RequestDetailPage() {
         setRefreshMessage('Data cube is ready.');
       } else {
         setRefreshMessage('Cube not ready yet — Belvedere may still be building.');
+        logger.warn('request-detail', 'Refresh did not resolve to ready', {
+          requestId: request.request_id,
+          readinessStatus: readiness.status,
+          manifestStatus: readiness.manifest?.status ?? null,
+          manifestFound: Boolean(readiness.manifest),
+          hasParquet: readiness.hasParquet,
+          hint: 'Check [osint-fusion:readiness] logs for S3 key paths and manifest status parsing.',
+        });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['request', requestId] });
       await queryClient.invalidateQueries({ queryKey: ['registry'] });
     } catch (err) {
+      logger.error('request-detail', 'Manual readiness refresh failed', {
+        requestId: request.request_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
       setRefreshMessage(err instanceof Error ? err.message : 'Refresh failed.');
     } finally {
       setRefreshing(false);
