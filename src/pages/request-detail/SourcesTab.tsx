@@ -1,24 +1,46 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Panel } from '../../components/Panel';
-import { SOURCE_TYPE_LABELS } from '../../types/cube';
+import { sourceTypeLabel } from '../../types/cube';
 import { useAwsCredentials } from '../../contexts/AwsCredentialsContext';
 import {
-  loadCubeSchema,
-  loadPayloadSchemaRegistry,
+  buildPayloadSchemaRefsQuery,
+  buildProducersBreakdownQuery,
+  runQuery,
+} from '../../lib/aws/athenaRepository';
+import {
   listSourceTypePrefixes,
+  loadPayloadSchemaRegistry,
   resolveSchemaLabel,
 } from '../../lib/schemaService';
 
-export function SourcesTab({ requestId }: { requestId: string }) {
-  const { s3Client } = useAwsCredentials();
-  const [expanded, setExpanded] = useState<string | null>(null);
+interface SourceTypeGroup {
+  id: string;
+  producers: { id: string; recordCount: number }[];
+}
 
-  const schemaQuery = useQuery({
-    queryKey: ['cube-schema', requestId],
-    queryFn: () => loadCubeSchema(s3Client!, requestId),
-    enabled: Boolean(s3Client),
-  });
+function groupProducersBySourceType(rows: Record<string, string | null>[]): SourceTypeGroup[] {
+  const groups = new Map<string, SourceTypeGroup>();
+
+  for (const row of rows) {
+    const sourceType = row.source_type ?? '';
+    const producer = row.source_producer ?? '';
+    if (!sourceType || !producer) {
+      continue;
+    }
+
+    const recordCount = Number(row.record_count ?? 0);
+    const existing = groups.get(sourceType) ?? { id: sourceType, producers: [] };
+    existing.producers.push({ id: producer, recordCount });
+    groups.set(sourceType, existing);
+  }
+
+  return [...groups.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+export function SourcesTab({ requestId }: { requestId: string }) {
+  const { s3Client, athenaClient } = useAwsCredentials();
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const registryQuery = useQuery({
     queryKey: ['payload-schema-registry'],
@@ -26,26 +48,51 @@ export function SourcesTab({ requestId }: { requestId: string }) {
     enabled: Boolean(s3Client),
   });
 
+  const producersQuery = useQuery({
+    queryKey: ['producers-breakdown', requestId],
+    queryFn: () => runQuery(athenaClient!, buildProducersBreakdownQuery(requestId)),
+    enabled: Boolean(athenaClient),
+    retry: false,
+  });
+
+  const payloadRefsQuery = useQuery({
+    queryKey: ['payload-schema-refs', requestId],
+    queryFn: () => runQuery(athenaClient!, buildPayloadSchemaRefsQuery(requestId)),
+    enabled: Boolean(athenaClient),
+    retry: false,
+  });
+
   const fallbackQuery = useQuery({
     queryKey: ['source-prefixes', requestId],
     queryFn: () => listSourceTypePrefixes(s3Client!, requestId),
-    enabled: Boolean(s3Client && !schemaQuery.data),
+    enabled: Boolean(s3Client && producersQuery.isError),
+    retry: false,
   });
 
-  const schema = schemaQuery.data;
   const registry = registryQuery.data;
+  const sourceTypes = useMemo(
+    () => (producersQuery.data ? groupProducersBySourceType(producersQuery.data) : []),
+    [producersQuery.data],
+  );
+  const payloadSchemaRefs = useMemo(
+    () =>
+      payloadRefsQuery.data
+        ?.map((row) => row.payload_schema_ref)
+        .filter((ref): ref is string => Boolean(ref)) ?? [],
+    [payloadRefsQuery.data],
+  );
 
-  if (schemaQuery.isLoading) {
+  if (producersQuery.isLoading && !producersQuery.isError) {
     return <p className="text-tactical-muted">Loading sources…</p>;
   }
 
-  if (schema) {
+  if (sourceTypes.length > 0) {
     return (
       <div className="space-y-4">
-        {schema.payload_schema_refs.length > 0 && (
+        {payloadSchemaRefs.length > 0 && (
           <Panel title="Payload Types">
             <ul className="flex flex-wrap gap-2">
-              {schema.payload_schema_refs.map((ref) => (
+              {payloadSchemaRefs.map((ref) => (
                 <li
                   key={ref}
                   className="rounded border border-tactical-border px-2 py-1 text-sm"
@@ -58,7 +105,7 @@ export function SourcesTab({ requestId }: { requestId: string }) {
         )}
         <Panel title="Source Types">
           <ul className="space-y-2">
-            {schema.source_types.map((sourceType) => (
+            {sourceTypes.map((sourceType) => (
               <li key={sourceType.id} className="rounded border border-tactical-border">
                 <button
                   type="button"
@@ -68,7 +115,7 @@ export function SourcesTab({ requestId }: { requestId: string }) {
                   }
                 >
                   <span className="font-display font-semibold">
-                    {SOURCE_TYPE_LABELS[sourceType.id] ?? sourceType.label}
+                    {sourceTypeLabel(sourceType.id)}
                   </span>
                   <span className="text-sm text-tactical-muted">
                     {sourceType.producers.length} producers
@@ -81,9 +128,9 @@ export function SourcesTab({ requestId }: { requestId: string }) {
                         key={producer.id}
                         className="flex justify-between py-2 text-sm"
                       >
-                        <span>{producer.label}</span>
+                        <span>{producer.id}</span>
                         <span className="text-tactical-muted">
-                          {producer.record_count.toLocaleString()} records
+                          {producer.recordCount.toLocaleString()} records
                         </span>
                       </li>
                     ))}
@@ -99,15 +146,22 @@ export function SourcesTab({ requestId }: { requestId: string }) {
 
   const prefixes = fallbackQuery.data ?? [];
   if (prefixes.length === 0) {
-    return <p className="text-tactical-muted">No source data discovered yet.</p>;
+    return (
+      <p className="text-tactical-muted">
+        No source data discovered yet. Athena or S3 partition paths are required.
+      </p>
+    );
   }
 
   return (
     <Panel title="Source Types (from S3 partitions)">
+      <p className="mb-3 text-sm text-amber-200">
+        Athena unavailable — showing source types inferred from parquet partition paths only.
+      </p>
       <ul className="space-y-1">
         {prefixes.map((type) => (
           <li key={type} className="text-sm">
-            {SOURCE_TYPE_LABELS[type] ?? type}
+            {sourceTypeLabel(type)}
           </li>
         ))}
       </ul>

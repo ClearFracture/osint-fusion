@@ -56,3 +56,21 @@ Full OSINT-Fusion SPA implemented per `PROJECT_PLAN.md`: Phases 0–4.
 - Added `isoToDatetimeLocal` helper (`src/lib/dateTimeLocal.ts`) to format stored ISO timestamps for datetime-local inputs
 - Refactored `NewRequestPage` to use shared panels; edit mode no longer passes `value` to map to avoid remount loops while drawing
 - Validation: `npm test` — 35 tests passed; `npm run build` — succeeded
+
+### Schema registry-only storage (2026-09-10)
+- JSON Schemas live only under `registry/schemas/`; removed per-cube `schema.json` from plan and app
+- `PROJECT_PLAN.md` §4 documents purpose and format for every app registry and data cube artifact
+- Readiness: `_manifest.json` status `ready` or parquet presence under `cube/data/` (no schema.json check)
+- Exploration tabs query Athena for metrics, producer breakdown, and `payload_schema_ref` values; S3 partition path fallback when Athena unavailable
+- Belvedere agent message and handoff runbook updated accordingly
+- Validation: `npm test` — 38 tests passed; `npm run build` — succeeded
+
+### Optional source type selection on requests (2026-09-10)
+- Added optional `topic.source_types` to request definition with canonical enum checkboxes on create and read-only badges on detail view
+- Included in Belvedere agent message, topic validation, and registry summaries
+- Validation: `npm test`; `npm run build`
+
+### Required topic / question narrative (2026-09-10)
+- Narrative is the only required topic field; geofence, time range, and source types remain optional
+- UI panel relabeled to "Topic / Question Narrative"; optional panels marked in titles
+- Validation: `npm test`; `npm run build`

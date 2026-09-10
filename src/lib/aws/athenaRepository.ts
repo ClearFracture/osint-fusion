@@ -176,3 +176,26 @@ export function buildSourceBreakdownQuery(requestId: string): string {
     ORDER BY record_count DESC
   `;
 }
+
+export function buildProducersBreakdownQuery(requestId: string): string {
+  const escaped = requestId.replace(/'/g, "''");
+  return `
+    SELECT source_type, source_producer, COUNT(*) AS record_count
+    FROM osint_cube
+    WHERE request_id = '${escaped}'
+    GROUP BY source_type, source_producer
+    ORDER BY source_type, record_count DESC
+  `;
+}
+
+export function buildPayloadSchemaRefsQuery(requestId: string): string {
+  const escaped = requestId.replace(/'/g, "''");
+  return `
+    SELECT DISTINCT payload_schema_ref
+    FROM osint_cube
+    WHERE request_id = '${escaped}'
+      AND payload_schema_ref IS NOT NULL
+      AND payload_schema_ref != ''
+    ORDER BY payload_schema_ref
+  `;
+}

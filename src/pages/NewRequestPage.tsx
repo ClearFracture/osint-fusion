@@ -5,6 +5,7 @@ import { RequestTopicPanels } from '../components/RequestTopicPanels';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { createRequest } from '../lib/requestService';
 import { hasTopicContent } from '../lib/topicValidation';
+import type { SourceType } from '../types/cube';
 import type { GeoJsonGeometry, TopicTimeRange } from '../types/request';
 
 export function NewRequestPage() {
@@ -13,12 +14,13 @@ export function NewRequestPage() {
   const [narrative, setNarrative] = useState('');
   const [geofence, setGeofence] = useState<GeoJsonGeometry | undefined>();
   const [timeRange, setTimeRange] = useState<TopicTimeRange>({ start: '', end: '' });
+  const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async () => {
       const topic = {
-        narrative: narrative.trim() || undefined,
+        narrative: narrative.trim(),
         geofence,
         time_range:
           timeRange.start && timeRange.end
@@ -27,9 +29,10 @@ export function NewRequestPage() {
                 end: new Date(timeRange.end).toISOString(),
               }
             : undefined,
+        source_types: sourceTypes.length > 0 ? sourceTypes : undefined,
       };
       if (!hasTopicContent(topic)) {
-        throw new Error('Provide at least one of narrative, geofence, or time range.');
+        throw new Error('Topic / question narrative is required.');
       }
       return createRequest(s3Client!, topic);
     },
@@ -50,9 +53,11 @@ export function NewRequestPage() {
         narrative={narrative}
         geofence={geofence}
         timeRange={timeRange}
+        sourceTypes={sourceTypes}
         onNarrativeChange={setNarrative}
         onGeofenceChange={setGeofence}
         onTimeRangeChange={setTimeRange}
+        onSourceTypesChange={setSourceTypes}
       />
 
       {error && <p className="text-red-300">{error}</p>}

@@ -27,7 +27,7 @@ OSINT-Fusion is a single-page web application that helps analysts request, disco
 
 ### Data cube readiness
 
-- Poll S3 for signals that a data cube is available (manifest/schema/parquet presence).
+- Poll S3 for signals that a data cube is available (manifest or parquet presence).
 - Transition request status from pending/building to ready and unlock exploration features.
 - The app is **not** involved in pipeline execution or cube construction.
 
@@ -36,7 +36,7 @@ OSINT-Fusion is a single-page web application that helps analysts request, disco
 Once a cube is ready, surface:
 
 - Top-level metrics: source type count, source producer count, total record count
-- Dynamic enumeration of **source types** from cube schema attributes (e.g., Infrastructure, Social Media, Entity Tracks, Earth Observations, Demographics)
+- Dynamic enumeration of **source types** from Athena queries against parquet-backed `osint_cube` (e.g., Infrastructure, Social Media, Entity Tracks, Earth Observations, Demographics)
 - Per source type: list of **source producers** (e.g., OpenStreetMap, BlueSky) with record counts
 - Resolve **payload type labels** from the global JSON Schema registry (`payload_schema_ref` on each record)
 

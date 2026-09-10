@@ -16,6 +16,17 @@ describe('checkCubeReadiness', () => {
     expect(result.status).toBe('ready');
   });
 
+  it('returns ready when parquet exists without manifest', async () => {
+    vi.spyOn(s3Repository, 'getJsonObject').mockResolvedValue(null);
+    vi.spyOn(s3Repository, 'listKeys').mockResolvedValue([
+      'requests/req-1/cube/data/source_type=SocialMedia/source_producer=BlueSky/part-0.parquet',
+    ]);
+
+    const result = await checkCubeReadiness({} as never, 'req-1', 'building');
+    expect(result.status).toBe('ready');
+    expect(result.hasParquet).toBe(true);
+  });
+
   it('returns failed when manifest reports failure', async () => {
     vi.spyOn(s3Repository, 'getJsonObject').mockImplementation(async (_client, key) => {
       if (key.endsWith('_manifest.json')) {

@@ -6,28 +6,6 @@ export interface CubeManifest {
   athena_table?: string;
 }
 
-export interface CubeProducer {
-  id: string;
-  label: string;
-  record_count: number;
-}
-
-export interface CubeSourceType {
-  id: string;
-  label: string;
-  producers: CubeProducer[];
-}
-
-export interface CubeSchema {
-  version: number;
-  request_id: string;
-  source_types: CubeSourceType[];
-  total_records: number;
-  artifact_count: number;
-  payload_schema_refs: string[];
-  last_updated: string;
-}
-
 export interface PayloadSchemaEntry {
   id: string;
   label: string;
@@ -41,10 +19,21 @@ export interface PayloadSchemaRegistry {
   schemas: PayloadSchemaEntry[];
 }
 
-export const SOURCE_TYPE_LABELS: Record<string, string> = {
+export const SOURCE_TYPE_LABELS = {
   Infrastructure: 'Infrastructure',
   SocialMedia: 'Social Media',
   EntityTracks: 'Entity Tracks',
   EarthObservations: 'Earth Observations',
   Demographics: 'Demographics',
-};
+} as const;
+
+export type SourceType = keyof typeof SOURCE_TYPE_LABELS;
+
+export const CANONICAL_SOURCE_TYPES = Object.keys(SOURCE_TYPE_LABELS) as SourceType[];
+
+export function sourceTypeLabel(sourceType: string): string {
+  if (sourceType in SOURCE_TYPE_LABELS) {
+    return SOURCE_TYPE_LABELS[sourceType as SourceType];
+  }
+  return sourceType;
+}

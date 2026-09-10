@@ -1,13 +1,6 @@
 import type { S3Client } from '@aws-sdk/client-s3';
-import type { CubeSchema, PayloadSchemaRegistry } from '../types/cube';
+import type { PayloadSchemaRegistry } from '../types/cube';
 import { getJsonObject, listKeys } from './aws/s3Repository';
-
-export async function loadCubeSchema(
-  client: S3Client,
-  requestId: string,
-): Promise<CubeSchema | null> {
-  return getJsonObject<CubeSchema>(client, `requests/${requestId}/cube/schema.json`);
-}
 
 export async function loadPayloadSchemaRegistry(
   client: S3Client,

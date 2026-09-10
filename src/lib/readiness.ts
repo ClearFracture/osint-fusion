@@ -6,7 +6,6 @@ import { getJsonObject, listKeys } from './aws/s3Repository';
 export interface ReadinessResult {
   status: RequestStatus;
   manifest: CubeManifest | null;
-  hasSchema: boolean;
   hasParquet: boolean;
 }
 
@@ -18,26 +17,24 @@ export async function checkCubeReadiness(
 ): Promise<ReadinessResult> {
   const base = `requests/${requestId}/cube`;
   const manifest = await getJsonObject<CubeManifest>(client, `${base}/_manifest.json`);
-  const schema = await getJsonObject<unknown>(client, `${base}/schema.json`);
   const keys = await listKeys(client, `${base}/data`);
   const hasParquet = keys.some((key) => key.endsWith('.parquet'));
 
   if (manifest?.status === 'failed') {
-    return { status: 'failed', manifest, hasSchema: Boolean(schema), hasParquet };
+    return { status: 'failed', manifest, hasParquet };
   }
 
-  if (manifest?.status === 'ready' || (schema && hasParquet)) {
-    return { status: 'ready', manifest, hasSchema: Boolean(schema), hasParquet };
+  if (manifest?.status === 'ready' || hasParquet) {
+    return { status: 'ready', manifest, hasParquet };
   }
 
   if (currentStatus === 'pending') {
-    return { status: 'building', manifest, hasSchema: Boolean(schema), hasParquet };
+    return { status: 'building', manifest, hasParquet };
   }
 
   return {
     status: currentStatus === 'ready' ? 'ready' : 'building',
     manifest,
-    hasSchema: Boolean(schema),
     hasParquet,
   };
 }

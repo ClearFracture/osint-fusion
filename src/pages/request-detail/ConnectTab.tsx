@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Panel } from '../../components/Panel';
 import { useAwsCredentials } from '../../contexts/AwsCredentialsContext';
 import { buildConnectInstructions } from '../../lib/connectInstructions';
-import { loadCubeSchema, loadPayloadSchemaRegistry } from '../../lib/schemaService';
+import { buildPayloadSchemaRefsQuery, runQuery } from '../../lib/aws/athenaRepository';
+import { loadPayloadSchemaRegistry } from '../../lib/schemaService';
 
 type Tool = 'qgis' | 'tableau';
 
 export function ConnectTab({ requestId }: { requestId: string }) {
   const [tool, setTool] = useState<Tool>('qgis');
-  const { s3Client } = useAwsCredentials();
+  const { s3Client, athenaClient } = useAwsCredentials();
 
-  const schemaQuery = useQuery({
-    queryKey: ['cube-schema', requestId],
-    queryFn: () => loadCubeSchema(s3Client!, requestId),
-    enabled: Boolean(s3Client),
+  const payloadRefsQuery = useQuery({
+    queryKey: ['payload-schema-refs', requestId],
+    queryFn: () => runQuery(athenaClient!, buildPayloadSchemaRefsQuery(requestId)),
+    enabled: Boolean(athenaClient),
+    retry: false,
   });
 
   const registryQuery = useQuery({
@@ -23,9 +25,17 @@ export function ConnectTab({ requestId }: { requestId: string }) {
     enabled: Boolean(s3Client),
   });
 
+  const payloadSchemaRefs = useMemo(
+    () =>
+      payloadRefsQuery.data
+        ?.map((row) => row.payload_schema_ref)
+        .filter((ref): ref is string => Boolean(ref)) ?? [],
+    [payloadRefsQuery.data],
+  );
+
   const instructions = buildConnectInstructions(
     requestId,
-    schemaQuery.data?.payload_schema_refs ?? [],
+    payloadSchemaRefs,
     registryQuery.data ?? null,
   );
 

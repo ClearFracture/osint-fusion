@@ -1,22 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Panel } from '../../components/Panel';
-import { SOURCE_TYPE_LABELS } from '../../types/cube';
+import { sourceTypeLabel } from '../../types/cube';
 import { useAwsCredentials } from '../../contexts/AwsCredentialsContext';
 import {
   buildOverviewQuery,
   buildSourceBreakdownQuery,
   runQuery,
 } from '../../lib/aws/athenaRepository';
-import { loadCubeSchema } from '../../lib/schemaService';
 
 export function OverviewTab({ requestId }: { requestId: string }) {
-  const { s3Client, athenaClient } = useAwsCredentials();
-
-  const schemaQuery = useQuery({
-    queryKey: ['cube-schema', requestId],
-    queryFn: () => loadCubeSchema(s3Client!, requestId),
-    enabled: Boolean(s3Client),
-  });
+  const { athenaClient } = useAwsCredentials();
 
   const metricsQuery = useQuery({
     queryKey: ['overview-metrics', requestId],
@@ -35,25 +28,10 @@ export function OverviewTab({ requestId }: { requestId: string }) {
     retry: false,
   });
 
-  const schema = schemaQuery.data;
-  const useSchemaFallback = metricsQuery.isError && schema;
-
-  const totalRecords = useSchemaFallback
-    ? String(schema.total_records)
-    : metricsQuery.data?.total_records ?? '—';
-  const sourceTypeCount = useSchemaFallback
-    ? String(schema.source_types.length)
-    : metricsQuery.data?.source_type_count ?? '—';
-  const producerCount = useSchemaFallback
-    ? String(schema.source_types.reduce((sum, t) => sum + t.producers.length, 0))
-    : metricsQuery.data?.producer_count ?? '—';
-
-  const breakdown = breakdownQuery.isError
-    ? schema?.source_types.map((t) => ({
-        source_type: t.id,
-        record_count: String(t.producers.reduce((s, p) => s + p.record_count, 0)),
-      })) ?? []
-    : breakdownQuery.data ?? [];
+  const totalRecords = metricsQuery.data?.total_records ?? '—';
+  const sourceTypeCount = metricsQuery.data?.source_type_count ?? '—';
+  const producerCount = metricsQuery.data?.producer_count ?? '—';
+  const breakdown = breakdownQuery.data ?? [];
 
   return (
     <div className="space-y-4">
@@ -63,9 +41,10 @@ export function OverviewTab({ requestId }: { requestId: string }) {
         <MetricTile label="Producers" value={producerCount} />
       </div>
 
-      {metricsQuery.isError && !schema && (
+      {metricsQuery.isError && (
         <p className="text-sm text-amber-200">
-          Athena unavailable — metrics require the osint_cube table or schema.json from Belvedere.
+          Athena unavailable — metrics require the osint_cube table and registered Glue partitions
+          for this request.
         </p>
       )}
 
@@ -75,7 +54,7 @@ export function OverviewTab({ requestId }: { requestId: string }) {
         ) : (
           <ul className="space-y-2">
             {breakdown.map((row) => {
-              const label = SOURCE_TYPE_LABELS[row.source_type ?? ''] ?? row.source_type;
+              const label = sourceTypeLabel(row.source_type ?? '');
               const count = row.record_count ?? '0';
               const max = Math.max(...breakdown.map((r) => Number(r.record_count ?? 0)), 1);
               const width = `${(Number(count) / max) * 100}%`;

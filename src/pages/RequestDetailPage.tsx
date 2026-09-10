@@ -6,13 +6,13 @@ import { Panel } from '../components/Panel';
 import { RequestTopicPanels, topicToPanelState } from '../components/RequestTopicPanels';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
+import { buildOverviewQuery, runQuery } from '../lib/aws/athenaRepository';
 import { checkCubeReadiness } from '../lib/readiness';
 import {
   loadRequest,
   saveRequestStatus,
   updateRegistryRecordCount,
 } from '../lib/requestService';
-import { loadCubeSchema } from '../lib/schemaService';
 import { ConnectTab } from './request-detail/ConnectTab';
 import { OverviewTab } from './request-detail/OverviewTab';
 import { SourcesTab } from './request-detail/SourcesTab';
@@ -21,7 +21,7 @@ type Tab = 'overview' | 'sources' | 'connect';
 
 export function RequestDetailPage() {
   const { requestId } = useParams<{ requestId: string }>();
-  const { s3Client } = useAwsCredentials();
+  const { s3Client, athenaClient } = useAwsCredentials();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('overview');
   const [refreshing, setRefreshing] = useState(false);
@@ -44,15 +44,20 @@ export function RequestDetailPage() {
       const readiness = await checkCubeReadiness(s3Client, request.request_id, request.status);
       await saveRequestStatus(s3Client, request, readiness.status);
 
-      if (readiness.status === 'ready') {
-        const schema = await loadCubeSchema(s3Client, request.request_id);
-        if (schema) {
-          await updateRegistryRecordCount(
-            s3Client,
-            request.request_id,
-            schema.total_records,
-            'ready',
-          );
+      if (readiness.status === 'ready' && athenaClient) {
+        try {
+          const rows = await runQuery(athenaClient, buildOverviewQuery(request.request_id));
+          const recordCount = Number(rows[0]?.total_records ?? 0);
+          if (recordCount > 0) {
+            await updateRegistryRecordCount(
+              s3Client,
+              request.request_id,
+              recordCount,
+              'ready',
+            );
+          }
+        } catch {
+          // Record count is optional when Athena is unavailable.
         }
       }
 

@@ -3,6 +3,8 @@ import {
   buildCreateDatabaseDdl,
   buildCreateTableDdl,
   buildOverviewQuery,
+  buildPayloadSchemaRefsQuery,
+  buildProducersBreakdownQuery,
   buildSourceBreakdownQuery,
 } from './athenaRepository';
 
@@ -17,6 +19,18 @@ describe('athenaRepository queries', () => {
     const sql = buildSourceBreakdownQuery('req-1');
     expect(sql).toContain('GROUP BY source_type');
     expect(sql).toContain("request_id = 'req-1'");
+  });
+
+  it('groups producers by source type and producer', () => {
+    const sql = buildProducersBreakdownQuery('req-1');
+    expect(sql).toContain('source_producer');
+    expect(sql).toContain('GROUP BY source_type, source_producer');
+  });
+
+  it('selects distinct payload schema refs', () => {
+    const sql = buildPayloadSchemaRefsQuery("req'2");
+    expect(sql).toContain("request_id = 'req''2'");
+    expect(sql).toContain('DISTINCT payload_schema_ref');
   });
 
   it('builds bootstrap DDL statements', () => {

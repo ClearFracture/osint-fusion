@@ -6,7 +6,7 @@
 4. Belvedere resolves the S3 destination from `request-id` via its catalog (`cf-hackathon/osint-fusion-app`).
 5. On completion Belvedere writes:
    - `cube/_manifest.json` with `status: ready` or `failed`
-   - `cube/schema.json`
    - Parquet under `cube/data/source_type=…/source_producer=…/`
    - Glue partitions on shared `osint_cube` table
+   - New payload JSON Schemas in `registry/schemas/` when needed (not per-cube schema files)
 6. Analyst clicks **Refresh readiness** in OSINT-Fusion to unlock exploration tabs.

@@ -1,11 +1,9 @@
+import { SOURCE_TYPE_LABELS } from '../types/cube';
 import type { NewRequestInput } from '../types/request';
 
-/** Returns true when at least one topic field is populated. */
+/** Returns true when the required topic / question narrative is populated. */
 export function hasTopicContent(topic: NewRequestInput): boolean {
-  const hasNarrative = Boolean(topic.narrative?.trim());
-  const hasGeofence = Boolean(topic.geofence);
-  const hasTimeRange = Boolean(topic.time_range?.start && topic.time_range?.end);
-  return hasNarrative || hasGeofence || hasTimeRange;
+  return Boolean(topic.narrative?.trim());
 }
 
 /** Short summary for registry display. */
@@ -19,6 +17,9 @@ export function topicSummary(topic: NewRequestInput): string {
   }
   if (topic.time_range) {
     return `${topic.time_range.start} → ${topic.time_range.end}`;
+  }
+  if (topic.source_types && topic.source_types.length > 0) {
+    return topic.source_types.map((type) => SOURCE_TYPE_LABELS[type] ?? type).join(', ');
   }
   return 'Untitled collection request';
 }

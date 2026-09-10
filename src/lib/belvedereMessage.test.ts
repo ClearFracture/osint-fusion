@@ -22,5 +22,17 @@ describe('buildAgentMessage', () => {
     const message = buildAgentMessage(baseRequest);
     expect(message).toContain('Geofence (GeoJSON):\n(not provided)');
     expect(message).toContain('Time range:\n(not provided)');
+    expect(message).toContain('Source types:\n(not specified — any source type)');
+  });
+
+  it('includes selected source types', () => {
+    const message = buildAgentMessage({
+      ...baseRequest,
+      topic: {
+        narrative: 'Test narrative',
+        source_types: ['EntityTracks', 'Demographics'],
+      },
+    });
+    expect(message).toContain('Source types:\nEntity Tracks, Demographics');
   });
 });

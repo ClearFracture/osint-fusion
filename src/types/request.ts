@@ -1,3 +1,5 @@
+import type { SourceType } from './cube';
+
 export type RequestStatus = 'pending' | 'building' | 'ready' | 'failed';
 
 export interface GeoJsonGeometry {
@@ -14,6 +16,8 @@ export interface CollectionTopic {
   narrative?: string;
   geofence?: GeoJsonGeometry;
   time_range?: TopicTimeRange;
+  /** Optional explicit source-type filter for collection (canonical enum ids). */
+  source_types?: SourceType[];
 }
 
 export interface CollectionRequest {
