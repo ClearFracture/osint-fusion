@@ -48,3 +48,11 @@ Full OSINT-Fusion SPA implemented per `PROJECT_PLAN.md`: Phases 0–4.
 - `npm test` — 25 tests passed
 - `npm run build` — succeeded
 - `npm run lint` — 0 errors (1 react-refresh warning on context hook)
+
+### Request detail topic panels (2026-09-09)
+- Extracted shared `RequestTopicPanels` component used by both create and detail views
+- Detail page shows the same narrative textarea, geofence map, and datetime-local time range inputs as the creation wizard, all read-only
+- `GeofenceMap` gained `readOnly` mode (display geometry, no draw controls, map interaction disabled)
+- Added `isoToDatetimeLocal` helper (`src/lib/dateTimeLocal.ts`) to format stored ISO timestamps for datetime-local inputs
+- Refactored `NewRequestPage` to use shared panels; edit mode no longer passes `value` to map to avoid remount loops while drawing
+- Validation: `npm test` — 35 tests passed; `npm run build` — succeeded

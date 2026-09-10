@@ -6,6 +6,7 @@ import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { isLikelyCorsError } from '../lib/aws/corsError';
 import { loadRegistry } from '../lib/requestService';
 import { CorsErrorPanel } from '../components/CorsErrorPanel';
+import { DeleteRequestButton } from '../components/DeleteRequestButton';
 
 export function LandingPage() {
   const { s3Client } = useAwsCredentials();
@@ -70,12 +71,19 @@ export function LandingPage() {
                     </td>
                     <td className="py-3 pr-4">{entry.record_count ?? '—'}</td>
                     <td className="py-3">
-                      <Link
-                        to={`/requests/${entry.request_id}`}
-                        className="text-tactical-gold underline hover:opacity-80"
-                      >
-                        Open
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                          to={`/requests/${entry.request_id}`}
+                          className="text-tactical-gold underline hover:opacity-80"
+                        >
+                          Open
+                        </Link>
+                        <DeleteRequestButton
+                          requestId={entry.request_id}
+                          topicSummary={entry.topic_summary}
+                          variant="inline"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { GeofenceMap } from '../components/GeofenceMap';
-import { Panel } from '../components/Panel';
+import { RequestTopicPanels } from '../components/RequestTopicPanels';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { createRequest } from '../lib/requestService';
 import { hasTopicContent } from '../lib/topicValidation';
@@ -23,7 +22,10 @@ export function NewRequestPage() {
         geofence,
         time_range:
           timeRange.start && timeRange.end
-            ? { start: new Date(timeRange.start).toISOString(), end: new Date(timeRange.end).toISOString() }
+            ? {
+                start: new Date(timeRange.start).toISOString(),
+                end: new Date(timeRange.end).toISOString(),
+              }
             : undefined,
       };
       if (!hasTopicContent(topic)) {
@@ -44,43 +46,14 @@ export function NewRequestPage() {
         <h1 className="mt-2 font-display text-3xl font-bold text-tactical-gold">New Collection Request</h1>
       </div>
 
-      <Panel title="1 — Topic Narrative">
-        <textarea
-          value={narrative}
-          onChange={(e) => setNarrative(e.target.value)}
-          rows={4}
-          placeholder="Describe the collection requirement…"
-          className="w-full rounded border border-tactical-border bg-tactical-bg px-3 py-2"
-        />
-      </Panel>
-
-      <Panel title="2 — Geofence">
-        <p className="mb-3 text-sm text-tactical-muted">Draw a polygon or rectangle on the map.</p>
-        <GeofenceMap value={geofence} onChange={setGeofence} />
-      </Panel>
-
-      <Panel title="3 — Time Range">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            Start
-            <input
-              type="datetime-local"
-              value={timeRange.start}
-              onChange={(e) => setTimeRange((prev) => ({ ...prev, start: e.target.value }))}
-              className="mt-1 w-full rounded border border-tactical-border bg-tactical-bg px-3 py-2"
-            />
-          </label>
-          <label className="text-sm">
-            End
-            <input
-              type="datetime-local"
-              value={timeRange.end}
-              onChange={(e) => setTimeRange((prev) => ({ ...prev, end: e.target.value }))}
-              className="mt-1 w-full rounded border border-tactical-border bg-tactical-bg px-3 py-2"
-            />
-          </label>
-        </div>
-      </Panel>
+      <RequestTopicPanels
+        narrative={narrative}
+        geofence={geofence}
+        timeRange={timeRange}
+        onNarrativeChange={setNarrative}
+        onGeofenceChange={setGeofence}
+        onTimeRangeChange={setTimeRange}
+      />
 
       {error && <p className="text-red-300">{error}</p>}
 

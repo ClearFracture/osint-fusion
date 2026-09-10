@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getJsonObject, putJsonObject } from './s3Repository';
+import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { deleteKeys, getJsonObject, putJsonObject } from './s3Repository';
 
 describe('s3Repository', () => {
   beforeEach(() => {
@@ -37,5 +37,15 @@ describe('s3Repository', () => {
 
     await putJsonObject(client, 'out.json', { saved: true });
     expect(client.send).toHaveBeenCalledWith(expect.any(PutObjectCommand));
+  });
+
+  it('deletes objects in batches', async () => {
+    const client = {
+      send: vi.fn().mockResolvedValue({}),
+    } as unknown as S3Client;
+
+    await deleteKeys(client, ['requests/a/request.json', 'requests/a/cube/data/part.parquet']);
+
+    expect(client.send).toHaveBeenCalledWith(expect.any(DeleteObjectsCommand));
   });
 });

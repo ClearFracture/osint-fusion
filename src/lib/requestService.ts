@@ -7,7 +7,7 @@ import type {
   RequestStatus,
 } from '../types/request';
 import { topicSummary } from './topicValidation';
-import { getJsonObject, putJsonObject } from './aws/s3Repository';
+import { deletePrefix, getJsonObject, putJsonObject } from './aws/s3Repository';
 
 const REGISTRY_KEY = 'registry/requests.json';
 
@@ -69,6 +69,17 @@ export async function createRequest(
   await putJsonObject(client, REGISTRY_KEY, registry);
 
   return request;
+}
+
+/** Remove a request, its data cube, and all objects under requests/{id}/ from S3. */
+export async function deleteRequest(client: S3Client, requestId: string): Promise<number> {
+  const removedObjects = await deletePrefix(client, `requests/${requestId}`);
+
+  const registry = await loadRegistry(client);
+  registry.requests = registry.requests.filter((entry) => entry.request_id !== requestId);
+  await putJsonObject(client, REGISTRY_KEY, registry);
+
+  return removedObjects;
 }
 
 export async function updateRegistryRecordCount(

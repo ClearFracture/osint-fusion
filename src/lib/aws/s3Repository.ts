@@ -1,4 +1,5 @@
 import {
+  DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -86,6 +87,36 @@ export async function listKeys(client: S3Client, relativePrefix: string): Promis
   } while (continuationToken);
 
   return keys;
+}
+
+/** Delete objects by relative keys under the app prefix. */
+export async function deleteKeys(client: S3Client, relativeKeys: string[]): Promise<void> {
+  if (relativeKeys.length === 0) {
+    return;
+  }
+
+  const { bucket } = getConfig();
+  const batchSize = 1000;
+
+  for (let index = 0; index < relativeKeys.length; index += batchSize) {
+    const batch = relativeKeys.slice(index, index + batchSize);
+    await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: {
+          Objects: batch.map((key) => ({ Key: appKey(key) })),
+          Quiet: true,
+        },
+      }),
+    );
+  }
+}
+
+/** Delete all objects under a relative prefix. Returns number of objects removed. */
+export async function deletePrefix(client: S3Client, relativePrefix: string): Promise<number> {
+  const keys = await listKeys(client, relativePrefix);
+  await deleteKeys(client, keys);
+  return keys.length;
 }
 
 function isNotFound(error: unknown): boolean {

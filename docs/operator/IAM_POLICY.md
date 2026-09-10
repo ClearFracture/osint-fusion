@@ -18,7 +18,7 @@ Grants access to the OSINT-Fusion app prefix on the shared hackathon bucket, inc
     },
     {
       "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
       "Resource": "arn:aws:s3:::cf-hackathon/osint-fusion-app/*"
     },
     {

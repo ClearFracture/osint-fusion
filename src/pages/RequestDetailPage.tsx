@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import { DeleteRequestButton } from '../components/DeleteRequestButton';
 import { Panel } from '../components/Panel';
+import { RequestTopicPanels, topicToPanelState } from '../components/RequestTopicPanels';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { checkCubeReadiness } from '../lib/readiness';
@@ -81,13 +83,13 @@ export function RequestDetailPage() {
           <Link to="/" className="text-sm text-tactical-muted hover:text-tactical-gold">
             ← Catalog
           </Link>
-          <h1 className="mt-2 font-display text-2xl font-bold text-tactical-gold">
-            {request.topic.narrative?.slice(0, 80) ?? 'Collection Request'}
-          </h1>
+          <h1 className="mt-2 font-display text-2xl font-bold text-tactical-gold">Collection Request</h1>
           <p className="text-sm text-tactical-muted">ID: {request.request_id}</p>
         </div>
         <StatusBadge status={request.status} />
       </div>
+
+      <RequestTopicPanels readOnly {...topicToPanelState(request.topic)} />
 
       <Panel title="Mission Status">
         <div className="flex flex-wrap gap-3">
@@ -105,6 +107,13 @@ export function RequestDetailPage() {
           >
             Belvedere handoff
           </Link>
+          <DeleteRequestButton
+            requestId={request.request_id}
+            topicSummary={
+              request.topic.narrative?.slice(0, 80) ?? request.request_id
+            }
+            variant="button"
+          />
         </div>
         {refreshMessage && <p className="mt-3 text-sm text-tactical-muted">{refreshMessage}</p>}
         {!isReady && (
