@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getConfig } from '../config/env';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
+import { AppBrand } from './AppBrand';
 import { Panel } from './Panel';
 
 export function CredentialGate() {
@@ -65,11 +66,12 @@ export function CredentialGate() {
   return (
     <div className="min-h-screen bg-tactical-bg px-4 py-12 font-body text-tactical-text">
       <div className="mx-auto max-w-lg">
-        <header className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-bold tracking-wide text-tactical-gold">
-            OSINT-FUSION
-          </h1>
-          <p className="mt-1 text-sm text-tactical-muted">Establish AWS Link</p>
+        <header className="mb-8 flex justify-center">
+          <AppBrand
+            subtitle="Establish AWS Link"
+            linkToHome={false}
+            logoClassName="h-16 w-16 shrink-0 object-contain"
+          />
         </header>
         <Panel title="Credentials">
           {envCredentialsAvailable && (
