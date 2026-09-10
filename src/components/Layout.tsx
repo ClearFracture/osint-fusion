@@ -3,7 +3,7 @@ import { BootstrapNotice } from './BootstrapNotice';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 
 export function Layout() {
-  const { identityArn, logout } = useAwsCredentials();
+  const { identityArn, credentialsFromEnv, logout } = useAwsCredentials();
 
   return (
     <div className="min-h-screen bg-tactical-bg text-tactical-text font-body">
@@ -18,6 +18,7 @@ export function Layout() {
           <div className="flex items-center gap-4 text-sm">
             {identityArn && (
               <span className="hidden max-w-xs truncate text-tactical-muted md:inline" title={identityArn}>
+                {credentialsFromEnv ? 'Env credentials · ' : ''}
                 {identityArn}
               </span>
             )}

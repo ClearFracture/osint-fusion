@@ -7,6 +7,21 @@ Single-page application for managing OSINT collection requests, handoff to Belve
 - Node.js 20+
 - AWS credentials with access to `cf-hackathon/osint-fusion-app`
 
+## S3 CORS (required for local dev)
+
+The app calls S3 **from the browser**. The `cf-hackathon` bucket must allow your dev origin or requests fail with a CORS error in the console.
+
+**One-time setup** (requires bucket admin):
+
+```bash
+aws s3api put-bucket-cors \
+  --bucket cf-hackathon \
+  --cors-configuration file://docs/operator/s3-cors.json \
+  --region us-east-1
+```
+
+Add production SPA URLs to `AllowedOrigins` in [`docs/operator/s3-cors.json`](docs/operator/s3-cors.json) before deploying. Details: [`docs/operator/S3_CORS.md`](docs/operator/S3_CORS.md).
+
 ## Local development
 
 ```bash
@@ -15,7 +30,17 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and enter AWS credentials at the credential gate.
+Open http://localhost:5173.
+
+### AWS credentials
+
+Either:
+
+1. **`.env` file (recommended for local dev)** — set `VITE_AWS_ACCESS_KEY_ID` and `VITE_AWS_SECRET_ACCESS_KEY` in `.env`. The credential UI is skipped automatically. Use **Clear credentials** in the header to switch to manual entry or another key.
+
+2. **Credential gate** — enter keys in the UI when `.env` credentials are not set (or after clearing).
+
+> **Security:** `VITE_*` variables are compiled into the browser bundle. Use `.env` credentials only for local development or private builds — not public production deployments.
 
 On first login the app **automatically bootstraps** missing infrastructure:
 
@@ -25,6 +50,28 @@ On first login the app **automatically bootstraps** missing infrastructure:
 - Glue/Athena database and `osint_cube` external table (via Athena DDL)
 
 A banner reports what was created or if manual setup is needed (usually insufficient IAM permissions).
+
+## Troubleshooting
+
+### `reportAllChanges` / `startTime` console error (VM####)
+
+If you see:
+
+```
+Uncaught TypeError: Cannot read properties of undefined (reading 'startTime')
+    at et.reportAllChanges (<anonymous>:2:...)
+```
+
+This is **not from OSINT-Fusion application code**. Chrome injects a Performance-panel helper when DevTools is open; React 19 dev builds (with React DevTools performance tracks) can trigger a [known Chrome integration bug](https://github.com/angular/angular/issues/70464) on route updates and re-renders.
+
+**Does not affect production builds** (`npm run build`) — React performance instrumentation is disabled there.
+
+**Mitigations:**
+
+1. Ignore it during local dev (harmless).
+2. Close the Chrome **Performance** panel or disable React Performance tracks in DevTools.
+3. Develop in Firefox/Edge if the noise is distracting.
+4. The dev server installs a guard in `src/main.tsx` that suppresses this specific error in development.
 
 ## Scripts
 
@@ -135,6 +182,7 @@ After Belvedere writes parquet partitions, run `MSCK REPAIR TABLE osint_cube` (o
 - [Project goals](docs/context/PROJECT_GOALS.md)
 - [Project plan](docs/context/PROJECT_PLAN.md)
 - [IAM policy template](docs/operator/IAM_POLICY.md)
+- [S3 CORS setup](docs/operator/S3_CORS.md)
 - [Belvedere handoff runbook](docs/operator/BELVEDERE_HANDOFF.md)
 
 ## Deployment

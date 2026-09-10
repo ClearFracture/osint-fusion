@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  areCredentialsCleared,
+  clearCredentialsClearedFlag,
   clearStoredCredentials,
   loadStoredCredentials,
+  markCredentialsCleared,
+  resolveAvailableCredentials,
   storeCredentials,
   validateCredentials,
 } from './credentials';
@@ -37,5 +41,12 @@ describe('credentials storage', () => {
       region: 'us-east-1',
     });
     expect(arn).toContain('arn:aws:iam::123:user/test');
+  });
+
+  it('ignores env credentials after user clears credentials', () => {
+    markCredentialsCleared();
+    expect(areCredentialsCleared()).toBe(true);
+    expect(resolveAvailableCredentials()).toBeNull();
+    clearCredentialsClearedFlag();
   });
 });

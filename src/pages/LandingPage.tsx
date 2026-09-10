@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { Panel } from '../components/Panel';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
+import { isLikelyCorsError } from '../lib/aws/corsError';
 import { loadRegistry } from '../lib/requestService';
+import { CorsErrorPanel } from '../components/CorsErrorPanel';
 
 export function LandingPage() {
   const { s3Client } = useAwsCredentials();
@@ -30,7 +32,8 @@ export function LandingPage() {
 
       <Panel title="Active Requests">
         {isLoading && <p className="text-tactical-muted">Loading registry…</p>}
-        {error && (
+        {error && isLikelyCorsError(error) && <CorsErrorPanel />}
+        {error && !isLikelyCorsError(error) && (
           <p className="text-red-300">
             Failed to load registry: {error instanceof Error ? error.message : 'Unknown error'}
           </p>

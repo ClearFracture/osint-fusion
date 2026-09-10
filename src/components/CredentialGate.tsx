@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getConfig } from '../config/env';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { Panel } from './Panel';
 
 export function CredentialGate() {
-  const { login } = useAwsCredentials();
+  const { authStatus, envCredentialsAvailable, login, restoreFromEnvironment } =
+    useAwsCredentials();
   const navigate = useNavigate();
   const config = getConfig();
   const [accessKeyId, setAccessKeyId] = useState('');
@@ -14,6 +15,20 @@ export function CredentialGate() {
   const [region, setRegion] = useState(config.region);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      navigate('/', { replace: true });
+    }
+  }, [authStatus, navigate]);
+
+  if (authStatus === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-tactical-bg font-body text-tactical-muted">
+        Verifying AWS credentials…
+      </div>
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -34,6 +49,19 @@ export function CredentialGate() {
     }
   }
 
+  async function handleRestoreEnv() {
+    setError(null);
+    setLoading(true);
+    try {
+      await restoreFromEnvironment();
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load environment credentials.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-tactical-bg px-4 py-12 font-body text-tactical-text">
       <div className="mx-auto max-w-lg">
@@ -44,10 +72,26 @@ export function CredentialGate() {
           <p className="mt-1 text-sm text-tactical-muted">Establish AWS Link</p>
         </header>
         <Panel title="Credentials">
+          {envCredentialsAvailable && (
+            <div className="mb-4 rounded border border-tactical-border bg-tactical-bg/60 px-3 py-3 text-sm">
+              <p className="text-tactical-muted">
+                AWS credentials are configured in your environment. You can restore them or enter
+                different credentials below.
+              </p>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleRestoreEnv}
+                className="mt-2 text-tactical-gold underline hover:opacity-80 disabled:opacity-50"
+              >
+                Use credentials from .env
+              </button>
+            </div>
+          )}
           <p className="mb-4 text-sm text-tactical-muted">
             Provide credentials with access to{' '}
-            <code className="text-tactical-gold">cf-hackathon/osint-fusion-app</code>. Credentials
-            are stored in this browser tab session only.
+            <code className="text-tactical-gold">cf-hackathon/osint-fusion-app</code>. Manual
+            credentials are stored in this browser tab session only.
           </p>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <label className="block text-sm text-tactical-text">

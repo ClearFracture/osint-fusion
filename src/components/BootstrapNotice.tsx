@@ -1,4 +1,6 @@
+import { isLikelyCorsError } from '../lib/aws/corsError';
 import { useBootstrap } from '../contexts/BootstrapContext';
+import { CorsErrorPanel } from './CorsErrorPanel';
 
 export function BootstrapNotice() {
   const { result, running, rerun } = useBootstrap();
@@ -15,8 +17,25 @@ export function BootstrapNotice() {
     return null;
   }
 
+  const corsFailure = result.errors.some(isLikelyCorsError);
+
   if (result.errors.length === 0 && result.created.length === 0) {
     return null;
+  }
+
+  if (corsFailure) {
+    return (
+      <div className="mb-6 space-y-3">
+        <CorsErrorPanel />
+        <button
+          type="button"
+          onClick={() => void rerun()}
+          className="text-sm text-tactical-muted underline hover:text-tactical-gold"
+        >
+          Retry bootstrap after CORS is configured
+        </button>
+      </div>
+    );
   }
 
   return (
