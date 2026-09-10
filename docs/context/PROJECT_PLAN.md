@@ -19,6 +19,8 @@ flowchart LR
   Tableau -->|Athena connector| Athena
 ```
 
+
+
 ### Design constraints
 
 - **Bring-your-own-credentials (BYOC):** Users enter AWS access key, secret, and optional session token. Credentials live in `sessionStorage` for the tab session only — no server-side persistence.
@@ -29,6 +31,7 @@ flowchart LR
 
 ### Tech stack
 
+
 | Layer        | Choice                                          |
 | ------------ | ----------------------------------------------- |
 | SPA          | React + Vite + TypeScript                       |
@@ -38,9 +41,11 @@ flowchart LR
 | Client state | React Query + session-scoped credential context |
 | Hosting      | Static build (S3 + CloudFront or Vite dev)      |
 
+
 ---
 
 ## 2. AWS Environment
+
 
 | Setting      | Value                      |
 | ------------ | -------------------------- |
@@ -48,6 +53,7 @@ flowchart LR
 | App prefix   | `osint-fusion-app/`        |
 | Region       | `us-east-1`                |
 | Environments | Single bucket for all envs |
+
 
 ### Credential gate
 
@@ -75,7 +81,7 @@ Belvedere auto-registers a **single shared external table** `osint_cube` when cu
 s3://cf-hackathon/osint-fusion-app/
 ├── registry/                          ← app-owned metadata (shared across all requests)
 │   ├── requests.json
-│   └── schemas/
+│   └── schemas/                       ← Belvedere-owned data cube payload schema support
 │       ├── index.json
 │       └── {schema-id}.json
 ├── requests/
@@ -100,20 +106,24 @@ s3://cf-hackathon/osint-fusion-app/
 
 These objects are owned and bootstrapped by the OSINT-Fusion app. They are shared across all collection requests.
 
-| Artifact | Purpose | Format |
-| -------- | ------- | ------ |
-| `registry/requests.json` | Catalog index for the landing page: request ids, topic summaries, status, optional record counts | JSON: `{ "version": 1, "requests": [{ "request_id", "topic_summary", "created_at", "status", "record_count?" }] }` |
-| `registry/schemas/index.json` | Global registry of payload JSON Schema ids, human labels, and S3 URIs to schema documents | JSON: `{ "version": 1, "schemas": [{ "id", "label", "description", "s3_uri", "media_type": "application/schema+json" }] }` |
-| `registry/schemas/{schema-id}.json` | JSON Schema document describing the structure of `payload_json` for records referencing that id | JSON Schema (draft 2020-12); e.g. `geojson-feature`, `bluesky-post`, `osm-element` |
+
+| Artifact                            | Purpose                                                                                          | Format                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `registry/requests.json`            | Catalog index for the landing page: request ids, topic summaries, status, optional record counts | JSON: `{ "version": 1, "requests": [{ "request_id", "topic_summary", "created_at", "status", "record_count?" }] }`         |
+| `registry/schemas/index.json`       | Global registry of payload JSON Schema ids, human labels, and S3 URIs to schema documents        | JSON: `{ "version": 1, "schemas": [{ "id", "label", "description", "s3_uri", "media_type": "application/schema+json" }] }` |
+| `registry/schemas/{schema-id}.json` | JSON Schema document describing the structure of `payload_json` for records referencing that id  | JSON Schema (draft 2020-12); e.g. `geojson-feature`, `bluesky-post`, `osm-element`                                         |
+
 
 Belvedere may **append** new entries to `registry/schemas/index.json` and upload new `{schema-id}.json` files when ingesting novel payload shapes. The app never writes per-cube schema summaries.
 
 ### Per-request app artifacts (`requests/{request-id}/`)
 
-| Artifact | Purpose | Format |
-| -------- | ------- | ------ |
-| `request.json` | Authoritative collection request record: topic, lifecycle status, cube S3 prefix | JSON (see below) |
-| `cube/.keep` | Placeholder written at request creation so the cube prefix exists before Belvedere runs | JSON: `{ "created": "<ISO-8601>" }` |
+
+| Artifact       | Purpose                                                                                 | Format                              |
+| -------------- | --------------------------------------------------------------------------------------- | ----------------------------------- |
+| `request.json` | Authoritative collection request record: topic, lifecycle status, cube S3 prefix        | JSON (see below)                    |
+| `cube/.keep`   | Placeholder written at request creation so the cube prefix exists before Belvedere runs | JSON: `{ "created": "<ISO-8601>" }` |
+
 
 #### `request.json`
 
@@ -138,11 +148,13 @@ Belvedere may **append** new entries to `registry/schemas/index.json` and upload
 
 These objects are written by Belvedere. Column layout is defined by the shared `osint_cube` Glue table and embedded in Parquet — not by a separate JSON file in the cube prefix.
 
-| Artifact | Purpose | Format |
-| -------- | ------- | ------ |
-| `_manifest.json` | Pipeline completion signal and optional error details | JSON: `{ "status": "building" \| "ready" \| "failed", "error_message?", "athena_table?" }` |
-| `data/source_type={type}/source_producer={producer}/part-{n}.parquet` | OSINT records for this request, Hive-partitioned by source type and producer | Apache Parquet; columns match §6 (same as Glue `osint_cube` table) |
-| `artifacts/{artifact-id}/…` | Binary attachments referenced from `artifact_refs` on parquet rows (images, documents, etc.) | Any MIME type; max **500 MB** per artifact |
+
+| Artifact                                                              | Purpose                                                                                      | Format                                                                                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `_manifest.json`                                                      | Pipeline completion signal and optional error details                                        | JSON: `{ "status": "building" | "ready" | "failed", "error_message?", "athena_table?" }` |
+| `data/source_type={type}/source_producer={producer}/part-{n}.parquet` | OSINT records for this request, Hive-partitioned by source type and producer                 | Apache Parquet; columns match §6 (same as Glue `osint_cube` table)                       |
+| `artifacts/{artifact-id}/…`                                           | Binary attachments referenced from `artifact_refs` on parquet rows (images, documents, etc.) | Any MIME type; max **500 MB** per artifact                                               |
+
 
 Geographic structure lives in `payload_json`, described by the referenced JSON Schema from the app registry (e.g. `geojson-feature`). No WKT or other denormalized geometry columns in parquet.
 
@@ -174,8 +186,8 @@ Belvedere has `cf-hackathon/osint-fusion-app` **pre-cataloged** and resolves the
 ```
 Collection request ID: {request-id}
 
-Topic / question narrative:
-{narrative}
+Topic narrative:
+{narrative or "(not provided)"}
 
 Geofence (GeoJSON):
 {geofence JSON or "(not provided)"}
@@ -203,24 +215,26 @@ Parquet files use the shared `osint_cube` external table definition. Each file i
 
 ### Parquet columns
 
-| Column               | Type             | Req | Description                                                             |
-| -------------------- | ---------------- | --- | ----------------------------------------------------------------------- |
-| `record_id`          | STRING           | yes | UUID                                                                    |
-| `request_id`         | STRING           | yes | Parent collection request (partition key)                               |
-| `source_type`        | STRING           | yes | One of the canonical enum values (partition key)                        |
-| `source_producer`    | STRING           | yes | e.g. `OpenStreetMap`, `BlueSky`, `Sentinel-2` (partition key)          |
-| `observed_at`        | TIMESTAMP        | yes | Observation time (UTC)                                                  |
-| `ingested_at`        | TIMESTAMP        | yes | Ingest time (UTC)                                                       |
-| `payload_json`       | STRING           | yes | JSON conforming to the referenced payload schema                        |
-| `payload_schema_ref` | STRING           | yes | ID in `registry/schemas/index.json`                                     |
-| `lat`                | DOUBLE           | no  | Optional centroid latitude                                              |
-| `lon`                | DOUBLE           | no  | Optional centroid longitude                                             |
-| `title`              | STRING           | no  | Display label                                                           |
-| `summary`            | STRING           | no  | Short text summary                                                      |
-| `confidence`         | DOUBLE           | no  | 0.0–1.0                                                                 |
-| `artifact_refs`      | ARRAY<STRUCT<…>> | no  | Pointers under `artifacts/` for binary objects linked in the payload    |
-| `tags`               | ARRAY            | no  | Additional facets                                                       |
-| `lineage`            | STRUCT<…>        | no  | Pipeline provenance                                                     |
+
+| Column               | Type             | Req | Description                                                          |
+| -------------------- | ---------------- | --- | -------------------------------------------------------------------- |
+| `record_id`          | STRING           | yes | UUID                                                                 |
+| `request_id`         | STRING           | yes | Parent collection request (partition key)                            |
+| `source_type`        | STRING           | yes | One of the canonical enum values (partition key)                     |
+| `source_producer`    | STRING           | yes | e.g. `OpenStreetMap`, `BlueSky`, `Sentinel-2` (partition key)        |
+| `observed_at`        | TIMESTAMP        | yes | Observation time (UTC)                                               |
+| `ingested_at`        | TIMESTAMP        | yes | Ingest time (UTC)                                                    |
+| `payload_json`       | STRING           | yes | JSON conforming to the referenced payload schema                     |
+| `payload_schema_ref` | STRING           | yes | ID in `registry/schemas/index.json`                                  |
+| `lat`                | DOUBLE           | no  | Optional centroid latitude                                           |
+| `lon`                | DOUBLE           | no  | Optional centroid longitude                                          |
+| `title`              | STRING           | no  | Display label                                                        |
+| `summary`            | STRING           | no  | Short text summary                                                   |
+| `confidence`         | DOUBLE           | no  | 0.0–1.0                                                              |
+| `artifact_refs`      | ARRAY<STRUCT<…>> | no  | Pointers under `artifacts/` for binary objects linked in the payload |
+| `tags`               | ARRAY            | no  | Additional facets                                                    |
+| `lineage`            | STRUCT<…>        | no  | Pipeline provenance                                                  |
+
 
 ### Canonical `source_type` values
 
@@ -231,3 +245,4 @@ Fixed enum with display labels and UI icons:
 - `EntityTracks`
 - `EarthObservations`
 - `Demographics`
+
