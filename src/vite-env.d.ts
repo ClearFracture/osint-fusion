@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_S3_PREFIX: string;
   readonly VITE_BELVEDERE_PIPELINE_URL: string;
   readonly VITE_ATHENA_DATABASE: string;
+  readonly VITE_ATHENA_TABLE: string;
   readonly VITE_ATHENA_OUTPUT: string;
 }
 

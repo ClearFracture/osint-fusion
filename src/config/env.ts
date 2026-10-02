@@ -5,6 +5,7 @@ export interface AppConfig {
   prefix: string;
   belvederePipelineUrl: string;
   athenaDatabase: string;
+  athenaTable: string;
   athenaOutput: string;
 }
 
@@ -15,6 +16,7 @@ export function getConfig(): AppConfig {
     prefix: import.meta.env.VITE_S3_PREFIX ?? 'osint-fusion-app',
     belvederePipelineUrl: import.meta.env.VITE_BELVEDERE_PIPELINE_URL ?? '',
     athenaDatabase: import.meta.env.VITE_ATHENA_DATABASE ?? 'osint_fusion',
+    athenaTable: import.meta.env.VITE_ATHENA_TABLE ?? 'osint_cube',
     athenaOutput:
       import.meta.env.VITE_ATHENA_OUTPUT ??
       's3://cf-hackathon/osint-fusion-app/athena-results/',

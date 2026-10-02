@@ -21,6 +21,33 @@ export async function loadRegistry(client: S3Client): Promise<RequestRegistry> {
   return registry ?? emptyRegistry();
 }
 
+/**
+ * Catalog rows with `topic_summary` replaced by the full narrative from request.json.
+ * Falls back to the stored summary when a request record is missing or unreadable.
+ */
+export async function loadCatalog(client: S3Client): Promise<RequestRegistry> {
+  const registry = await loadRegistry(client);
+  const requests = await Promise.all(
+    registry.requests.map(async (entry) => {
+      try {
+        const request = await loadRequest(client, entry.request_id);
+        const narrative = request?.topic.narrative?.trim();
+        if (!narrative) {
+          return entry;
+        }
+        return { ...entry, topic_summary: narrative };
+      } catch (error) {
+        logger.warn('catalog', 'Failed to read request topic; using stored summary', {
+          requestId: entry.request_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return entry;
+      }
+    }),
+  );
+  return { ...registry, requests };
+}
+
 export async function loadRequest(
   client: S3Client,
   requestId: string,

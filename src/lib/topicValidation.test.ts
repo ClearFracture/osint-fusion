@@ -19,8 +19,11 @@ describe('topicValidation', () => {
     expect(hasTopicContent({ source_types: ['SocialMedia'] })).toBe(false);
   });
 
-  it('builds topic summary from narrative', () => {
+  it('builds topic summary from the full narrative', () => {
     expect(topicSummary({ narrative: 'Short topic' })).toBe('Short topic');
+    const narrative = 'Maritime activity '.repeat(12).trim();
+    expect(topicSummary({ narrative })).toBe(narrative);
+    expect(topicSummary({ narrative: '  padded  ' })).toBe('padded');
   });
 
   it('builds topic summary from source types when narrative missing', () => {

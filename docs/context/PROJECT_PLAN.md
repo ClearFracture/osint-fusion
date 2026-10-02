@@ -11,8 +11,8 @@ flowchart LR
   SPA --> S3[(S3: registry + data cubes)]
   SPA --> Athena[(Athena: aggregations)]
   User --> Belvedere[Belvedere Pipeline Agent]
-  Belvedere -->|writes parquet + catalog| S3
-  Belvedere -->|registers Glue partitions| Athena
+  Belvedere -->|writes parquet + schemas| S3
+  SPA -->|registers Glue partitions| Athena
   User --> QGIS[QGIS]
   User --> Tableau[Tableau]
   QGIS -->|GDAL /vsis3/ parquet| S3
@@ -25,7 +25,7 @@ flowchart LR
 
 - **Bring-your-own-credentials (BYOC):** Users enter AWS access key, secret, and optional session token. Credentials live in `sessionStorage` for the tab session only — no server-side persistence.
 - **Shared data, no auth:** All requests and cubes are visible to anyone with bucket read access. No user accounts or RBAC.
-- **Belvedere builds cubes:** The app manages request lifecycle and exploration; Belvedere writes parquet, manifests, Glue/Athena catalog entries, and new payload JSON Schemas in the app registry when needed.
+- **Belvedere builds cubes:** The app manages request lifecycle, the Glue table, and partition registration. Belvedere writes parquet and manifests, reads `registry/schemas/index.json`, and appends a payload JSON Schema only when no existing schema matches.
 - **Schemas live in the app registry only:** JSON Schemas describing `payload_json` are stored under `registry/schemas/`. Parquet column layout is defined by the shared Glue/Athena table and embedded in each `.parquet` file — there is no per-cube `schema.json`.
 - **Direct tool connections:** QGIS reads parquet from S3 via GDAL `/vsis3/`. Tableau uses the Athena connector against the shared Glue table. No app proxy.
 
@@ -71,7 +71,7 @@ glue:GetDatabase, glue:GetTable, glue:GetPartitions
 
 ### Glue / Athena catalog
 
-Belvedere (or the app) registers partitions on a **single shared external table** `osint_cube`. The app bootstraps the database/table on login; when a request is ready, it discovers parquet prefixes under `requests/{request-id}/cube/data/` and runs `ALTER TABLE … ADD PARTITION` with explicit S3 `LOCATION` paths (required because paths include `{request-id}/cube/data/` rather than Hive-style `request_id=` folders at the table root). Catalog partitions include `request_id`, `source_type`, and `source_producer`. The app queries with `WHERE request_id = '{request-id}'`.
+The app registers partitions on a **single shared external table** `osint_cube`. The app bootstraps the database/table on login; when a request is ready, it discovers parquet prefixes under `requests/{request-id}/cube/data/` and runs `ALTER TABLE … ADD PARTITION` with explicit S3 `LOCATION` paths (required because paths include `{request-id}/cube/data/` rather than Hive-style `request_id=` folders at the table root). Catalog partitions include `request_id`, `source_type`, and `source_producer`. The app queries with `WHERE request_id = '{request-id}'`. Belvedere does not create the table or register partitions.
 
 ---
 
@@ -142,7 +142,7 @@ Belvedere may **append** new entries to `registry/schemas/index.json` and upload
 }
 ```
 
-`narrative` is **required** — the topic / question narrative that drives collection. All other topic fields are optional: `geofence`, `time_range`, and `source_types`. When `source_types` is omitted or empty, collection is not limited to specific categories. Values must be canonical enum ids: `Infrastructure`, `SocialMedia`, `EntityTracks`, `EarthObservations`, `Demographics`.
+`narrative` is **required** — the topic / question narrative that drives collection. All other topic fields are optional: `geofence`, `time_range`, and `source_types`. When `source_types` is omitted or empty, the pipeline chooses cataloged sources from the narrative alone. When `source_types` is present, those categories must be covered if cataloged sources can supply them, and the pipeline adds other canonical source types when the listed categories are insufficient to answer the narrative. Every output row uses one of: `Infrastructure`, `SocialMedia`, `EntityTracks`, `EarthObservations`, `Demographics`.
 
 ### Data cube artifacts (`requests/{request-id}/cube/`)
 
@@ -157,6 +157,8 @@ These objects are written by Belvedere. Column layout is defined by the shared `
 
 
 Geographic structure lives in `payload_json`, described by the referenced JSON Schema from the app registry (e.g. `geojson-feature`). No WKT or other denormalized geometry columns in parquet.
+
+`request_id`, `source_type`, and `source_producer` are Glue partition keys. They are not also stored as physical columns inside the parquet files. The table `LOCATION` is `requests/`, and the request id is not a `request_id=` folder at that root, so `MSCK REPAIR TABLE` does not discover partitions. Each partition is registered with `ALTER TABLE … ADD PARTITION … LOCATION` pointing at `requests/{request-id}/cube/data/source_type={type}/source_producer={producer}/`.
 
 ### Readiness and failure
 
@@ -173,39 +175,23 @@ Exploration metrics (record counts, source breakdown, payload type labels) come 
 
 ## 5. Belvedere Handoff
 
-Belvedere has `cf-hackathon/osint-fusion-app` **pre-cataloged** and resolves the cube path from `request-id` alone. The app does not pass bucket configuration or S3 URIs in the agent message.
+The agent message is self-contained. A pipeline for this cube may not exist yet, so the prompt is sufficient to create one from scratch. It includes the S3 layout, artifact ownership, parquet file layout, and the collection request. It tells the pipeline to read `registry/schemas/index.json` at runtime and append a schema only when no existing document matches. The app creates the Glue table and registers partitions; the prompt tells the pipeline not to. Bucket, prefix, region, and Athena names come from `VITE_S3_BUCKET`, `VITE_S3_PREFIX`, `VITE_AWS_REGION`, `VITE_ATHENA_DATABASE`, `VITE_ATHENA_TABLE`, and `VITE_ATHENA_OUTPUT`.
 
 ### New request flow
 
 1. User enters a required topic / question narrative and optional geofence, time range, and source types via the new-request wizard.
 2. App generates `request_id`, writes `request.json`, updates `registry/requests.json`, creates the cube prefix.
-3. App shows the Belvedere pipeline link (`VITE_BELVEDERE_PIPELINE_URL`) and a copy-ready agent message. No URL query-parameter pre-fill — user pastes the message into Belvedere chat.
+3. App shows the Belvedere pipeline link (`VITE_BELVEDERE_PIPELINE_URL`) and a copy-ready agent message. No URL query-parameter pre-fill — the user pastes the message into a new Belvedere chat.
 
-### Agent message template
+### Agent message contents
 
-```
-Collection request ID: {request-id}
+Generated by `buildAgentMessage` (`src/lib/belvedereMessage.ts`) and `buildDataCubeContract` (`src/lib/belvedereCubeContract.ts`):
 
-Topic narrative:
-{narrative or "(not provided)"}
+1. Instruction to create a new pipeline, select cataloged sources, filter each source, then fuse results into one cube. Source types, when present, must be covered, and other canonical types are added when those are insufficient for the narrative.
+2. Data cube configuration: storage layout, app-owned objects Belvedere must not change (`registry/requests.json`, `request.json`, `cube/.keep`), manifest lifecycle, parquet columns including the `artifact_refs` and `lineage` structs, canonical `source_type` values, and an instruction to read the payload schema registry dynamically. The message forbids creating or altering the Athena table and its partitions.
+3. Collection request details: id, read-only `request.json` URI, cube prefix, narrative, geofence, time range, and source types.
 
-Geofence (GeoJSON):
-{geofence JSON or "(not provided)"}
-
-Time range:
-{start} to {end} or "(not provided)"}
-
-Source types:
-{comma-separated labels or "(not specified — any source type)"}
-
-Please build the OSINT data cube for this collection request using the cataloged S3 destination for request {request-id}.
-Write parquet partitions and _manifest.json when complete.
-Set payload_schema_ref on each record to a schema id from the global registry (registry/schemas/index.json).
-Register any new payload JSON Schemas in the global registry before referencing them.
-Register Glue partitions on the shared osint_cube table.
-```
-
-Belvedere writes `_manifest.json`, parquet data, Glue partitions, and any new entries in the payload schema registry.
+Belvedere writes `_manifest.json`, parquet data, artifacts, and any new entries in the payload schema registry after reading the existing registry. It does not create the Glue table, register partitions, or rewrite `request.json` or `registry/requests.json`. The app registers partitions when a ready request is opened or refreshed.
 
 ---
 
@@ -231,9 +217,9 @@ Parquet files use the shared `osint_cube` external table definition. Each file i
 | `title`              | STRING           | no  | Display label                                                        |
 | `summary`            | STRING           | no  | Short text summary                                                   |
 | `confidence`         | DOUBLE           | no  | 0.0–1.0                                                              |
-| `artifact_refs`      | ARRAY<STRUCT<…>> | no  | Pointers under `artifacts/` for binary objects linked in the payload |
-| `tags`               | ARRAY            | no  | Additional facets                                                    |
-| `lineage`            | STRUCT<…>        | no  | Pipeline provenance                                                  |
+| `artifact_refs`      | ARRAY<STRUCT<artifact_id:STRING, mime_type:STRING, s3_uri:STRING, role:STRING>> | no  | Pointers under `artifacts/`; max 500 MB per object |
+| `tags`               | ARRAY<STRING>    | no  | Additional facets                                                    |
+| `lineage`            | STRUCT<pipeline_run_id:STRING, belvedere_chat_id:STRING, extractor_version:STRING> | no | Pipeline provenance                                                  |
 
 
 ### Canonical `source_type` values

@@ -92,6 +92,7 @@ See `.env.example` for `VITE_*` variables (bucket, prefix, Belvedere URL, Athena
 | `VITE_S3_PREFIX` | `osint-fusion-app` |
 | `VITE_AWS_REGION` | `us-east-1` |
 | `VITE_ATHENA_DATABASE` | `osint_fusion` |
+| `VITE_ATHENA_TABLE` | `osint_cube` |
 | `VITE_ATHENA_OUTPUT` | `s3://cf-hackathon/osint-fusion-app/athena-results/` |
 
 ## Manual AWS setup
@@ -175,7 +176,7 @@ STORED AS PARQUET
 LOCATION 's3://cf-hackathon/osint-fusion-app/requests/';
 ```
 
-Parquet lives under `requests/{request-id}/cube/data/source_type=…/source_producer=…/`, which is **not** Hive-compatible directly under the table `LOCATION`. OSINT-Fusion registers partitions automatically when you open or refresh a ready request (via `ALTER TABLE … ADD PARTITION` with explicit S3 paths). Belvedere may also register partitions via Glue.
+Parquet lives under `requests/{request-id}/cube/data/source_type=…/source_producer=…/`, which is **not** Hive-compatible directly under the table `LOCATION`. OSINT-Fusion registers partitions with `ALTER TABLE … ADD PARTITION … LOCATION` (not `MSCK REPAIR`) when you open or refresh a ready request. The Belvedere handoff prompt tells the pipeline not to create the table or register partitions.
 
 ## Documentation
 

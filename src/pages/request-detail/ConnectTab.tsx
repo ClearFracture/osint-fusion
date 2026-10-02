@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Panel } from '../../components/Panel';
+import { getConfig } from '../../config/env';
 import { useAwsCredentials } from '../../contexts/AwsCredentialsContext';
 import { buildConnectInstructions } from '../../lib/connectInstructions';
 import { buildPayloadSchemaRefsQuery, runQuery } from '../../lib/aws/athenaRepository';
@@ -11,6 +12,7 @@ type Tool = 'qgis' | 'tableau';
 export function ConnectTab({ requestId }: { requestId: string }) {
   const [tool, setTool] = useState<Tool>('qgis');
   const { s3Client, athenaClient } = useAwsCredentials();
+  const { athenaTable } = getConfig();
 
   const payloadRefsQuery = useQuery({
     queryKey: ['payload-schema-refs', requestId],
@@ -41,18 +43,22 @@ export function ConnectTab({ requestId }: { requestId: string }) {
 
   const steps = tool === 'qgis' ? instructions.qgis : instructions.tableau;
 
+  async function copyVrt() {
+    await navigator.clipboard.writeText(instructions.qgisVrt);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex gap-3">
         <ToolCard
           label="QGIS"
-          description="Direct S3 parquet via GDAL /vsis3/"
+          description="Athena JDBC layer via .vrt"
           active={tool === 'qgis'}
           onClick={() => setTool('qgis')}
         />
         <ToolCard
           label="Tableau"
-          description="Athena connector → osint_cube"
+          description={`Athena connector → ${athenaTable}`}
           active={tool === 'tableau'}
           onClick={() => setTool('tableau')}
         />
@@ -66,6 +72,20 @@ export function ConnectTab({ requestId }: { requestId: string }) {
             </li>
           ))}
         </ol>
+        {tool === 'qgis' && (
+          <div className="mt-4">
+            <pre className="max-h-96 overflow-auto rounded border border-tactical-border bg-tactical-bg p-4 text-xs whitespace-pre-wrap">
+              {instructions.qgisVrt}
+            </pre>
+            <button
+              type="button"
+              onClick={copyVrt}
+              className="mt-4 rounded border border-tactical-gold px-4 py-2 text-tactical-gold hover:bg-tactical-gold/10"
+            >
+              Copy .vrt
+            </button>
+          </div>
+        )}
       </Panel>
     </div>
   );

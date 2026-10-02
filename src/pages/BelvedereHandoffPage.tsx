@@ -56,7 +56,7 @@ export function BelvedereHandoffPage() {
 
       <Panel title="Agent Message">
         <p className="mb-3 text-sm text-tactical-muted">
-          Copy this message into the Belvedere pipeline chat.
+          Copy this message into a new Belvedere chat. It defines the cube contract and this collection request so the pipeline can be created from scratch.
         </p>
         <pre className="max-h-96 overflow-auto rounded border border-tactical-border bg-tactical-bg p-4 text-xs whitespace-pre-wrap">
           {message}

@@ -23,7 +23,7 @@ OSINT-Fusion is a single-page web application that helps analysts request, disco
 - On new request creation:
   - Allocate a new S3 location (prefix) for the resulting data cube
   - Present a link to the Belvedere pipeline deployment
-  - Present a copy-ready message for the Belvedere pipeline agent containing the topic information (Belvedere already has the target S3 bucket cataloged)
+  - Present a copy-ready message for a new Belvedere pipeline. The message includes the cube storage contract and this request's topic, because a pipeline may not already exist.
 
 ### Data cube readiness
 

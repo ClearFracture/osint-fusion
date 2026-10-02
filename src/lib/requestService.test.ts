@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRequest, deleteRequest, loadRegistry } from './requestService';
+import { createRequest, deleteRequest, loadCatalog, loadRegistry } from './requestService';
 import * as s3Repository from './aws/s3Repository';
 
 describe('requestService', () => {
@@ -22,6 +22,61 @@ describe('requestService', () => {
     vi.spyOn(s3Repository, 'getJsonObject').mockResolvedValue(null);
     const registry = await loadRegistry({} as never);
     expect(registry.requests).toEqual([]);
+  });
+
+  it('shows the full request narrative in the catalog', async () => {
+    vi.spyOn(s3Repository, 'getJsonObject').mockImplementation(async (_client, key) => {
+      if (key === 'registry/requests.json') {
+        return {
+          version: 1,
+          requests: [
+            {
+              request_id: 'req-1',
+              topic_summary: 'Truncated...',
+              created_at: '2026-01-01T00:00:00Z',
+              status: 'pending',
+            },
+          ],
+        };
+      }
+      if (key === 'requests/req-1/request.json') {
+        return {
+          request_id: 'req-1',
+          topic: { narrative: '  Full collection narrative that must stay visible  ' },
+          created_at: '2026-01-01T00:00:00Z',
+          status: 'pending',
+          cube_s3_prefix: 's3://bucket/requests/req-1/cube/',
+        };
+      }
+      return null;
+    });
+
+    const catalog = await loadCatalog({} as never);
+    expect(catalog.requests[0].topic_summary).toBe(
+      'Full collection narrative that must stay visible',
+    );
+  });
+
+  it('keeps the stored topic summary when the request record is missing', async () => {
+    vi.spyOn(s3Repository, 'getJsonObject').mockImplementation(async (_client, key) => {
+      if (key === 'registry/requests.json') {
+        return {
+          version: 1,
+          requests: [
+            {
+              request_id: 'req-1',
+              topic_summary: 'Stored summary',
+              created_at: '2026-01-01T00:00:00Z',
+              status: 'pending',
+            },
+          ],
+        };
+      }
+      return null;
+    });
+
+    const catalog = await loadCatalog({} as never);
+    expect(catalog.requests[0].topic_summary).toBe('Stored summary');
   });
 
   it('deletes request prefix and removes registry entry', async () => {

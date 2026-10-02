@@ -4,7 +4,7 @@ import { Panel } from '../components/Panel';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAwsCredentials } from '../contexts/AwsCredentialsContext';
 import { isLikelyCorsError } from '../lib/aws/corsError';
-import { loadRegistry } from '../lib/requestService';
+import { loadCatalog } from '../lib/requestService';
 import { CorsErrorPanel } from '../components/CorsErrorPanel';
 import { DeleteRequestButton } from '../components/DeleteRequestButton';
 
@@ -12,7 +12,7 @@ export function LandingPage() {
   const { s3Client } = useAwsCredentials();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['registry'],
-    queryFn: () => loadRegistry(s3Client!),
+    queryFn: () => loadCatalog(s3Client!),
     enabled: Boolean(s3Client),
   });
 
@@ -48,21 +48,21 @@ export function LandingPage() {
           </div>
         )}
         {data && data.requests.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div>
+            <table className="w-full table-fixed text-left text-sm">
               <thead className="border-b border-tactical-border text-tactical-muted">
                 <tr>
-                  <th className="py-2 pr-4">Topic</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Created</th>
-                  <th className="py-2 pr-4">Records</th>
-                  <th className="py-2">Action</th>
+                  <th className="w-[42%] py-2 pr-4">Topic</th>
+                  <th className="w-[12%] py-2 pr-4">Status</th>
+                  <th className="w-[20%] py-2 pr-4">Created</th>
+                  <th className="w-[10%] py-2 pr-4">Records</th>
+                  <th className="w-[16%] py-2">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {data.requests.map((entry) => (
-                  <tr key={entry.request_id} className="border-b border-tactical-border/50">
-                    <td className="py-3 pr-4">{entry.topic_summary}</td>
+                  <tr key={entry.request_id} className="border-b border-tactical-border/50 align-top">
+                    <td className="whitespace-pre-wrap break-words py-3 pr-4">{entry.topic_summary}</td>
                     <td className="py-3 pr-4">
                       <StatusBadge status={entry.status} />
                     </td>

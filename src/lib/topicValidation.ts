@@ -6,11 +6,10 @@ export function hasTopicContent(topic: NewRequestInput): boolean {
   return Boolean(topic.narrative?.trim());
 }
 
-/** Short summary for registry display. */
+/** Registry label for a topic. Narratives are kept whole so the catalog can wrap them. */
 export function topicSummary(topic: NewRequestInput): string {
   if (topic.narrative?.trim()) {
-    const text = topic.narrative.trim();
-    return text.length > 80 ? `${text.slice(0, 77)}...` : text;
+    return topic.narrative.trim();
   }
   if (topic.geofence) {
     return `Geofence (${topic.geofence.type})`;
